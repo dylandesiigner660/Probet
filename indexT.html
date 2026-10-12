@@ -149,7 +149,7 @@ const PROV_STORE="probet_provider";
 const KEY_STORES={claude:"probet_claude_key",groq:"probet_groq_key"};
 const PROVIDERS={
   claude:{name:"Claude",model:"claude-sonnet-5-5",tag:"CLAUDE SONNET 5.5 · WEB",color:"#a78bfa",ph:"sk-ant-..."},
-  groq:{name:"Groq",model:"groq/compound",tag:"GROQ COMPOUND · WEB · GRATUIT",color:"#f97316",ph:"gsk_..."}
+  groq:{name:"Groq",model:"openai/gpt-oss-120b",tag:"GROQ GPT-OSS 120B · WEB · GRATUIT",color:"#f97316",ph:"gsk_..."}
 };
 function getProvider(){ const p=lsGet(PROV_STORE); return PROVIDERS[p]?p:"groq"; }
 function getKey(p){ return lsGet(KEY_STORES[p||getProvider()]); }
@@ -182,8 +182,8 @@ async function callGroq(sys,usr,imgB64,imgMime,maxTok){
   const key=getKey("groq"); if(!key) throw needKey();
   if(imgB64) throw new Error("Groq ne lit pas les images. Colle le texte du coupon, ou passe sur Claude dans Menu.");
   const messages=[]; if(sys) messages.push({role:"system",content:sys}); messages.push({role:"user",content:usr});
-  const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model:PROVIDERS.groq.model,messages,temperature:0.2,max_completion_tokens:Math.min(maxTok||8000,8000)})});
-  if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error((e?.error?.message||"Groq "+res.status)+(res.status===429?" — Quota gratuit atteint, réessaie dans une minute.":"")); }
+  const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify({model:PROVIDERS.groq.model,messages,temperature:0.3,max_completion_tokens:Math.min(maxTok||8000,8000),reasoning_effort:"low",tools:[{type:"browser_search"}],tool_choice:"required"})});
+  if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error((e?.error?.message||"Groq "+res.status)+(res.status===429||res.status===413?" — Limite gratuite Groq atteinte : attends une minute, ou réduis le nombre de matchs/coupons.":"")); }
   const d=await res.json();
   const t=(d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"").trim();
   if(!t) throw new Error("Groq : réponse vide. Réessaie.");
@@ -982,7 +982,7 @@ function viewMenu(){
     • Fixe un budget et ne mise jamais plus de 1 à 5 % de ta bankroll par coupon.<br>
     • Ne cherche pas à « te refaire » après une perte.<br>
     • Les cotes affichées sont indicatives : vérifie-les sur ton bookmaker.</div>
-  <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#1a3a52;letter-spacing:1px;padding:20px 0">PROBET v14.0 · BOT STRATÉGIQUE FOOTBALL</div>`;
+  <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#1a3a52;letter-spacing:1px;padding:20px 0">PROBET v14.1 · BOT STRATÉGIQUE FOOTBALL</div>`;
   return h;
 }
 function saveKey(){
