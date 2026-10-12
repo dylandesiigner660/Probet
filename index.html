@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PROBET"/>
+<meta name="theme-color" content="#040c16"/>
+<title>PROBET — Expert Football IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#040c16;--card:#0a1929;--card2:#0b1929;--border:#1a2d45;--border2:#1e3a52;--green:#00e5a0;--blue:#00b4d8;--red:#ff4d6d;--yellow:#ffd600;--purple:#a78bfa;--orange:#f97316;--teal:#34d399;--amber:#f59e0b;--text:#dce8f5;--muted:#6a8fa8;--dim:#1e4060;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--bg);color:var(--text);font-family:'Barlow',system-ui,sans-serif;min-height:100vh;overscroll-behavior:none}
+body{background:linear-gradient(160deg,#040c16,#060f1c,#050b15);padding-bottom:60px}
+input,select,textarea{background:var(--card2)!important;border:1px solid var(--border2)!important;border-radius:10px;color:var(--text)!important;padding:11px 13px;font-size:14px;width:100%;outline:none;-webkit-appearance:none;font-family:'Barlow',sans-serif;transition:border-color .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(0,229,160,.1)!important}
+input::placeholder,textarea::placeholder{color:var(--dim)}
+select option{background:var(--card2);color:var(--text)}
+label{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+textarea{resize:vertical;min-height:110px;line-height:1.6}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeup{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes shimmer{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes glow{0%,100%{box-shadow:0 4px 24px rgba(0,229,160,.2)}50%{box-shadow:0 4px 40px rgba(0,229,160,.45)}}
+.fade{animation:fadeup .35s ease}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+#app{max-width:480px;margin:0 auto;padding:0 14px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div style="padding:16px 0 8px;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;justify-content:space-between">
+  <div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:4px;line-height:1;background:linear-gradient(135deg,#00e5a0,#00b4d8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">PROBET</div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--dim);letter-spacing:2px;margin-top:2px" id="engine-label">DÉTECTION IA EN COURS...</div>
+  </div>
+  <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);padding:5px 11px;border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green)">
+    <div style="width:5px;height:5px;background:var(--green);border-radius:50%;animation:pulse 1.2s infinite"></div>
+    <span id="live-label">LIVE</span>
+  </div>
+</div>
+<div style="display:flex;gap:6px;margin:8px 0 12px;flex-wrap:wrap" id="engine-badges"></div>
+
+<!-- CLÉ API GEMINI (stockée uniquement dans le navigateur) -->
+<div id="key-panel" style="display:none;background:linear-gradient(135deg,#1a1405,#0a1929);border:1px solid rgba(255,214,0,.3);border-radius:12px;padding:12px 14px;margin-bottom:14px">
+  <div id="key-edit">
+    <label style="color:var(--yellow)">🔑 Clé API Gemini</label>
+    <div style="display:flex;gap:6px">
+      <input type="password" id="key-in" placeholder="Colle ta clé Gemini ici" autocomplete="off"/>
+      <button onclick="saveKey()" style="flex-shrink:0;padding:0 16px;background:linear-gradient(135deg,#ffd600,#f59e0b);border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:1px;color:#000;cursor:pointer">OK</button>
+    </div>
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:#8a7a3a;margin-top:6px;line-height:1.6">Enregistrée uniquement dans ce navigateur. Jamais publiée sur GitHub.</div>
+  </div>
+  <div id="key-ok" style="display:none;align-items:center;justify-content:space-between;gap:8px">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green)">🔑 Clé enregistrée ✓</span>
+    <div style="display:flex;gap:6px">
+      <button onclick="editKey()" style="background:transparent;border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);cursor:pointer">Modifier</button>
+      <button onclick="clearKey()" style="background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);border-radius:8px;padding:5px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#ff4d6d;cursor:pointer">Effacer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN TABS -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:16px;background:var(--card);border-radius:12px;padding:4px">
+  <button id="mtab-verify" onclick="switchMain('verify')" style="padding:11px 8px;background:linear-gradient(135deg,#a78bfa,#7c3aed);border:none;border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#fff;cursor:pointer;font-weight:700">✅ VÉRIFIER</button>
+  <button id="mtab-gen" onclick="switchMain('gen')" style="padding:11px 8px;background:transparent;border:none;border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer">🎯 GÉNÉRER</button>
+</div>
+
+<!-- VERIFY PANE -->
+<div id="pane-verify" class="fade">
+  <div style="background:linear-gradient(135deg,#0f1e36,#1a1040);border:1px solid rgba(167,139,250,.25);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--purple);letter-spacing:2px;margin-bottom:6px">📸 ANALYSER MON COUPON</div>
+    <div style="font-size:12px;color:#8fb5cc;line-height:1.7">Importez une <b style="color:#fff">photo, capture ou PDF</b>. L'IA note chaque pari <b style="color:var(--purple)">sur 20</b> avec suggestion si note &lt; 17.</div>
+  </div>
+
+  <div style="margin-bottom:12px">
+    <label>📁 Photo / Capture / PDF</label>
+    <div id="drop-zone" onclick="if(!couponFile)document.getElementById('file-in').click()" style="background:var(--card);border:2px dashed var(--border2);border-radius:12px;padding:18px 14px;text-align:center;cursor:pointer">
+      <div id="drop-content">
+        <div style="font-size:36px;margin-bottom:8px">📷</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);line-height:1.9">Touchez pour importer<br><span style="font-size:9px">📷 JPG · PNG · WebP</span><br><span style="font-size:9px;color:var(--blue)">📄 PDF (converti auto)</span></div>
+      </div>
+    </div>
+    <input type="file" id="file-in" accept="image/*,.pdf,application/pdf" style="display:none" onchange="handleFile(event)"/>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin:14px 0">
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)">OU TEXTE</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+  </div>
+
+  <div style="margin-bottom:14px">
+    <label>✍️ Coller / décrire les paris</label>
+    <textarea id="coupon-text" placeholder="Format libre :&#10;&#10;Espagne vs France — Plus de 2.5 buts → OUI (1.75)&#10;Angleterre vs Croatie — BTTS → OUI (1.90)&#10;Algérie vs Maroc — Double Chance 1X (1.55)&#10;Nigeria vs Sénégal — But 86-90 min → OUI (3.20)"></textarea>
+  </div>
+
+  <button onclick="verifyCoupon()" id="btn-verify" style="width:100%;padding:16px;background:linear-gradient(135deg,#a78bfa,#7c3aed);color:#fff;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 24px rgba(167,139,250,.3);margin-bottom:12px">✅ ANALYSER MON COUPON</button>
+
+  <div id="v-loading" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:22px;text-align:center;margin-bottom:14px">
+    <div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--purple);border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 12px"></div>
+    <div id="v-msg" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--purple);animation:shimmer 1.5s ease-in-out infinite">🔍 Analyse du coupon...</div>
+  </div>
+  <div id="v-error" style="display:none;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.25);border-radius:10px;padding:12px 14px;color:#ff6b80;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;margin-bottom:12px"></div>
+  <div id="v-results"></div>
+</div>
+
+<!-- GEN PANE -->
+<div id="pane-gen" style="display:none">
+  <div style="display:flex;gap:3px;margin-bottom:16px;background:var(--card);border-radius:12px;padding:3px">
+    <button id="stab-config" onclick="switchSub('config')" style="flex:1;background:linear-gradient(135deg,var(--green),var(--blue));border:none;border-radius:9px;padding:9px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#000;cursor:pointer;font-weight:700">⚙️ Config</button>
+    <button id="stab-coupons" onclick="switchSub('coupons')" style="flex:1;background:transparent;border:none;border-radius:9px;padding:9px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer">🎯 Coupons</button>
+    <button id="stab-analyse" onclick="switchSub('analyse')" style="flex:1;background:transparent;border:none;border-radius:9px;padding:9px 4px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer">📊 Analyse</button>
+  </div>
+
+  <div id="sub-config" class="fade">
+
+    <!-- MATCHS DU JOUR AUTO -->
+    <div style="background:linear-gradient(135deg,#0a1929,#0d1f3c);border:1px solid rgba(0,180,216,.3);border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue);letter-spacing:2px;margin-bottom:6px">🔍 MATCHS DU JOUR EN TEMPS RÉEL</div>
+      <div style="font-size:11px;color:#8fb5cc;line-height:1.6;margin-bottom:10px">Gemini + Google Search récupère automatiquement les matchs d'aujourd'hui et les ajoute à ta liste.</div>
+
+      <!-- Filtres ligue -->
+      <div style="margin-bottom:10px">
+        <label>Compétition(s) à cibler</label>
+        <div id="league-filters" style="display:flex;flex-wrap:wrap;gap:6px">
+          <!-- généré par JS -->
+        </div>
+      </div>
+
+      <button onclick="fetchTodayMatches()" id="btn-today" style="width:100%;padding:12px;background:linear-gradient(135deg,#00b4d8,#0077b6);color:#fff;border:none;border-radius:12px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px rgba(0,180,216,.3)">
+        🔍 CHARGER LES MATCHS DU JOUR
+      </button>
+      <div id="today-loading" style="display:none;text-align:center;padding:14px 0">
+        <div style="width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 8px"></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue);animation:shimmer 1.5s ease-in-out infinite">🔍 Gemini recherche les matchs du jour...</div>
+      </div>
+      <div id="today-error" style="display:none;margin-top:8px;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.25);border-radius:8px;padding:10px 12px;color:#ff6b80;font-family:'IBM Plex Mono',monospace;font-size:10px"></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:2px">// RENCONTRES (<span id="match-count">1</span>)</div>
+      <div style="display:flex;gap:6px">
+        <button onclick="clearMatches()" style="background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);border-radius:8px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#ff4d6d;cursor:pointer">🗑 Vider</button>
+        <button onclick="addMatch()" style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);border-radius:8px;padding:6px 14px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);cursor:pointer">+ AJOUTER</button>
+      </div>
+    </div>
+    <div id="matches-list"></div>
+
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:2px;margin-bottom:10px">// COUPONS À GÉNÉRER</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px" id="nb-btns">
+        <button onclick="setNb(3)" data-n="3" style="flex:1;padding:12px 8px;background:linear-gradient(135deg,var(--green),var(--blue));border:none;border-radius:10px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:24px;color:#000">3</button>
+        <button onclick="setNb(4)" data-n="4" style="flex:1;padding:12px 8px;background:#060f1a;border:1px solid var(--border);border-radius:10px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:24px;color:#2a5a78">4</button>
+        <button onclick="setNb(5)" data-n="5" style="flex:1;padding:12px 8px;background:#060f1a;border:1px solid var(--border);border-radius:10px;cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:24px;color:#2a5a78">5</button>
+      </div>
+      <div id="styles-list"></div>
+    </div>
+
+    <div style="margin-bottom:18px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:2px;margin-bottom:8px">// MARCHÉS (<span id="m-count">6</span>)</div>
+      <div style="background:rgba(0,180,216,.06);border:1px solid rgba(0,180,216,.15);border-radius:8px;padding:7px 11px;margin-bottom:10px;font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--blue);line-height:1.8">📏 Seuils calibrés : 🟥 Fautes 20-28 · 🎯 Tirs cadrés 5-9 · 🏹 Tirs au but 9-14</div>
+      <div id="marches-list"></div>
+    </div>
+
+    <button onclick="generate()" id="btn-gen" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--green),var(--blue));color:#000;border:none;border-radius:14px;font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 24px rgba(0,229,160,.25);animation:glow 2.5s ease-in-out infinite;margin-bottom:10px">🎯 GÉNÉRER <span id="nb-label">3</span> COUPONS</button>
+
+    <div id="g-loading" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center">
+      <div style="width:34px;height:34px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .75s linear infinite;margin:0 auto 10px"></div>
+      <div id="g-msg" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);animation:shimmer 1.5s ease-in-out infinite">🧠 Génération en cours...</div>
+    </div>
+    <div id="g-error" style="display:none;background:rgba(255,77,109,.08);border:1px solid rgba(255,77,109,.25);border-radius:10px;padding:12px 14px;color:#ff6b80;font-family:'IBM Plex Mono',monospace;font-size:11px"></div>
+    <div style="margin-top:10px;background:rgba(255,214,0,.04);border:1px solid rgba(255,214,0,.12);border-radius:10px;padding:9px 12px;font-size:11px;color:#6b5c1a;line-height:1.6">⚠️ Prédictions basées sur données 2026/2027. Sport imprévisible. Jouez responsablement.</div>
+  </div>
+
+  <div id="sub-coupons" style="display:none" class="fade">
+    <div id="c-empty" style="text-align:center;padding:60px 20px;color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:11px">Configurez et cliquez <b style="color:var(--green)">GÉNÉRER</b></div>
+    <div id="c-content" style="display:none"></div>
+  </div>
+  <div id="sub-analyse" style="display:none" class="fade">
+    <div id="a-empty" style="text-align:center;padding:60px 20px;color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:11px">Générez pour voir l'analyse</div>
+    <div id="a-content" style="display:none"></div>
+  </div>
+</div>
+
+<div style="margin-top:28px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#1a3a52;letter-spacing:1px;padding-bottom:20px">
+  PROBET v10.1 · Auto-detect IA · Note /20 · Expert Football 2026/2027 · © 2027
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DÉTECTION AUTO DE L'ENVIRONNEMENT
+// Claude.ai artifact → API Anthropic interne (pas de CORS)
+// GitHub Pages / hébergement propre → Gemini (clé saisie par l'utilisateur)
+// ═══════════════════════════════════════════════════════════
+
+// ── Clé API Gemini : saisie dans la page, stockée en local ──
+// Aucune clé n'est écrite dans ce fichier.
+const KEY_STORE = "probet_gemini_key";
+function getKey(){ try{ return localStorage.getItem(KEY_STORE) || ""; }catch(_){ return ""; } }
+function saveKey(){
+  const v = (document.getElementById("key-in").value || "").trim();
+  if(!v){ alert("Colle ta clé API Gemini."); return; }
+  try{ localStorage.setItem(KEY_STORE, v); }catch(_){ alert("Impossible d'enregistrer la clé dans ce navigateur (mode privé ?)."); return; }
+  document.getElementById("key-in").value = "";
+  renderKeyPanel();
+}
+function editKey(){
+  document.getElementById("key-ok").style.display = "none";
+  document.getElementById("key-edit").style.display = "block";
+  document.getElementById("key-in").focus();
+}
+function clearKey(){
+  try{ localStorage.removeItem(KEY_STORE); }catch(_){}
+  renderKeyPanel();
+}
+function renderKeyPanel(){
+  const panel = document.getElementById("key-panel");
+  if(IS_CLAUDE){ panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  const has = !!getKey();
+  document.getElementById("key-edit").style.display = has ? "none" : "block";
+  document.getElementById("key-ok").style.display = has ? "flex" : "none";
+}
+
+// Détecter si on est dans Claude.ai
+const IS_CLAUDE = window.location.hostname.includes("claude.ai") ||
+                  window.location.hostname.includes("anthropic.com") ||
+                  window.location.protocol === "blob:";
+
+// Initialiser les badges UI
+function initEngine() {
+  const label = document.getElementById("engine-label");
+  const badges = document.getElementById("engine-badges");
+  const live = document.getElementById("live-label");
+
+  if (IS_CLAUDE) {
+    label.textContent = "CLAUDE SONNET 4 · EXPERT FOOTBALL · 2026/2027";
+    live.textContent = "CLAUDE";
+    badges.innerHTML =
+      pill("🧠 Claude Sonnet 4","#a78bfa") +
+      pill("♾️ Session Claude.ai","#5a7a99") +
+      pill("📅 2026/2027","#ffd600");
+  } else {
+    label.textContent = "GEMINI 2.0 FLASH · GOOGLE SEARCH · 2026/2027";
+    live.textContent = "GEMINI";
+    badges.innerHTML =
+      pill("🔍 Gemini + Google Search","#00b4d8") +
+      pill("♾️ Illimité","#00e5a0") +
+      pill("📅 2026/2027","#ffd600");
+  }
+  renderKeyPanel();
+}
+
+// ── API Gemini (GitHub Pages) ─────────────────────────────
+async function callGemini(prompt, imageB64, imageMime) {
+  const key = getKey();
+  if (!key) {
+    renderKeyPanel();
+    window.scrollTo({top:0,behavior:"smooth"});
+    throw new Error("Ajoute d'abord ta clé API Gemini en haut de la page.");
+  }
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + encodeURIComponent(key);
+  const parts = [];
+  if (imageB64 && imageMime) parts.push({ inline_data: { mime_type: imageMime, data: imageB64 } });
+  parts.push({ text: prompt });
+  const res = await fetch(url, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ contents:[{parts}], tools:[{google_search:{}}], generationConfig:{temperature:0.1,maxOutputTokens:8000} })
+  });
+  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e?.error?.message||"Gemini "+res.status); }
+  const d = await res.json();
+  const txt = (d.candidates||[]).flatMap(c=>c.content?.parts||[]).filter(p=>p.text).map(p=>p.text).join("").trim();
+  if (!txt) throw new Error("Gemini: réponse vide");
+  return txt;
+}
+
+// ── API Claude (Claude.ai artifact) ──────────────────────
+async function callClaude(sys, usr, imageB64, imageMime) {
+  const contentArr = [];
+  if (imageB64 && imageMime) {
+    contentArr.push({type:"image",source:{type:"base64",media_type:imageMime,data:imageB64}});
+  }
+  contentArr.push({type:"text",text:usr});
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:8000, system:sys, messages:[{role:"user",content:contentArr}] })
+  });
+  if (!res.ok) { const e=await res.json().catch(()=>({})); throw new Error(e?.error?.message||"Claude API "+res.status); }
+  const d = await res.json();
+  return (d.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("").trim();
+}
+
+// ── Routeur IA auto ────────────────────────────────────────
+async function callAI(sysOrPrompt, usr, imageB64, imageMime) {
+  if (IS_CLAUDE) {
+    return await callClaude(sysOrPrompt, usr, imageB64, imageMime);
+  } else {
+    // Gemini : fusionner sys + usr en un seul prompt
+    const fullPrompt = (sysOrPrompt ? sysOrPrompt + "\n\n" : "") + (usr || "");
+    return await callGemini(fullPrompt, imageB64, imageMime);
+  }
+}
+
+// ── Parse JSON robuste ────────────────────────────────────
+function parseJSON(raw) {
+  let t = raw.replace(/```json\s*/gi,"").replace(/```\s*/g,"").trim();
+  const s=t.indexOf("{"),e=t.lastIndexOf("}");
+  if(s>=0&&e>s) t=t.slice(s,e+1);
+  try{return JSON.parse(t);}catch(_){}
+  try{return JSON.parse(t.replace(/,\s*([}\]])/g,"$1"));}catch(_){}
+  try{
+    let f=t.replace(/,\s*$/,""),opens=0,br=0,inS=false;
+    for(let i=0;i<f.length;i++){const c=f[i];if(c==='"'&&f[i-1]!=="\\")inS=!inS;if(!inS){if(c==="{")opens++;if(c==="}")opens--;if(c==="[")br++;if(c==="]")br--;}}
+    while(br>0){f+="]";br--;}while(opens>0){f+="}";opens--;}
+    return JSON.parse(f.replace(/,\s*([}\]])/g,"$1"));
+  }catch(e2){throw new Error("Réponse IA invalide. Réessayez.");}
+}
+
+// ── Constantes ────────────────────────────────────────────
+const COUPON_STYLES=[
+  {id:"securise",label:"🟢 SÉCURISÉ",sub:"Haute probabilité",bg:"#00e5a0"},
+  {id:"fin_match",label:"🔴 FIN DE MATCH",sub:"86-90' · TA · Rempl.",bg:"#ff4d6d"},
+  {id:"stats",label:"🔵 STATS",sub:"Fautes · Tirs calibrés",bg:"#00b4d8"},
+  {id:"equilibre",label:"🟡 ÉQUILIBRÉ",sub:"Mix multimarché",bg:"#ffd600"},
+  {id:"audacieux",label:"🟣 AUDACIEUX",sub:"Risque/gain élevé",bg:"#a78bfa"},
+];
+const MARCHES=[
+  {id:"but_86_90",icon:"⏱",label:"But 86-90 min",color:"#ff4d6d",desc:"Entre 86ᵉ et 90ᵉ min"},
+  {id:"but_ta",icon:"➕",label:"But Temps Additionnel",color:"#ffd600",desc:"En 90+ min"},
+  {id:"remplacant_but",icon:"🔄",label:"Remplaçant va marquer",color:"#a78bfa",desc:"Un entrant marque"},
+  {id:"fautes",icon:"🟥",label:"Fautes +/-",color:"#f97316",desc:"Moy. ~22-26/match"},
+  {id:"tirs_cadres",icon:"🎯",label:"Tirs cadrés +/-",color:"#34d399",desc:"Moy. ~5-9/match"},
+  {id:"tirs_but",icon:"🏹",label:"Tirs au but +/-",color:"#00b4d8",desc:"Moy. ~9-14/match"},
+  {id:"over_25",icon:"⚽",label:"Plus de 2.5 buts",color:"#a78bfa",desc:"Au moins 3 buts"},
+  {id:"over_15",icon:"⚽",label:"Plus de 1.5 buts",color:"#c4b5fd",desc:"Au moins 2 buts"},
+  {id:"btts",icon:"🔁",label:"BTTS — Les 2 marquent",color:"#34d399",desc:"Les deux marquent"},
+  {id:"handicap_eu",icon:"⚖️",label:"Handicap Européen",color:"#00b4d8",desc:"AH 0 — nul remboursé"},
+  {id:"dc_1x",icon:"🛡",label:"Double Chance 1X",color:"#f59e0b",desc:"Victoire éq.1 ou nul"},
+  {id:"score_ht",icon:"⏰",label:"Score Mi-Temps",color:"#00e5a0",desc:"Résultat exact à 45'"},
+];
+const COMPS=["UEFA Nations League 2026/27","Qualification CAN 2027","Qualification Coupe du Monde 2026","Coupe du Monde 2026","AFCON / CAN 2027","Champions League 2026/27","Europa League 2026/27","Conference League 2026/27","Premier League 2026/27","La Liga 2026/27","Ligue 1 2026/27","Bundesliga 2026/27","Serie A 2026/27","Match Amical International","Autre"];
+const FLAGS={"France":"🇫🇷","Brésil":"🇧🇷","Argentine":"🇦🇷","Angleterre":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","England":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Espagne":"🇪🇸","Allemagne":"🇩🇪","Portugal":"🇵🇹","Pays-Bas":"🇳🇱","Belgique":"🇧🇪","Italie":"🇮🇹","Croatie":"🇭🇷","Danemark":"🇩🇰","Suisse":"🇨🇭","Sénégal":"🇸🇳","Maroc":"🇲🇦","Nigeria":"🇳🇬","Algérie":"🇩🇿","Tunisie":"🇹🇳","Égypte":"🇪🇬","Côte d'Ivoire":"🇨🇮","Cameroun":"🇨🇲","Ghana":"🇬🇭","Mali":"🇲🇱","Serbie":"🇷🇸","Turquie":"🇹🇷","Pologne":"🇵🇱","Ukraine":"🇺🇦","États-Unis":"🇺🇸","USA":"🇺🇸","Mexique":"🇲🇽","Canada":"🇨🇦","Japon":"🇯🇵","Corée du Sud":"🇰🇷","Chelsea":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Arsenal":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","Real Madrid":"🇪🇸","Barcelone":"🇪🇸","Uruguay":"🇺🇾","Colombie":"🇨🇴","Chili":"🇨🇱","Équateur":"🇪🇨","Venezuela":"🇻🇪"};
+function getFlag(n){if(!n)return"🏳️";if(FLAGS[n])return FLAGS[n];const l=n.toLowerCase();const k=Object.keys(FLAGS).find(f=>f.toLowerCase()===l||f.toLowerCase().includes(l)||l.includes(f.toLowerCase()));return k?FLAGS[k]:"🏳️";}
+
+// ── State ─────────────────────────────────────────────────
+let mainTab="verify",subTab="config",nb=3;
+let matches=[{id:1,t1:"",t2:"",comp:"UEFA Nations League 2026/27",date:new Date().toISOString().split("T")[0]}];
+let selM=new Set(["but_86_90","but_ta","remplacant_but","fautes","tirs_cadres","tirs_but"]);
+let couponFile=null,genResult=null,actC=0;
+
+// ── Filtres ligues ─────────────────────────────────────────
+const LEAGUE_FILTERS=[
+  {id:"ucl",label:"🏆 UCL",q:"Champions League"},
+  {id:"pl",label:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 PL",q:"Premier League"},
+  {id:"liga",label:"🇪🇸 Liga",q:"La Liga"},
+  {id:"ligue1",label:"🇫🇷 L1",q:"Ligue 1"},
+  {id:"bund",label:"🇩🇪 Bund.",q:"Bundesliga"},
+  {id:"serie",label:"🇮🇹 Serie A",q:"Serie A"},
+  {id:"uel",label:"🟠 UEL",q:"Europa League"},
+  {id:"nations",label:"🌐 NL",q:"Nations League"},
+  {id:"can",label:"🌍 CAN",q:"CAN AFCON"},
+  {id:"all",label:"🌍 TOUS",q:"tous championnats majeurs"},
+];
+let selLeagues=new Set(["pl","liga","ucl","ligue1"]);
+
+function renderLeagueFilters(){
+  const el=document.getElementById("league-filters");
+  if(!el)return;
+  el.innerHTML=LEAGUE_FILTERS.map(l=>{
+    const s=selLeagues.has(l.id);
+    return`<button onclick="toggleLeague('${l.id}')" style="padding:5px 10px;background:${s?"linear-gradient(135deg,#00b4d8,#0077b6)":"var(--card)"};border:1px solid ${s?"#00b4d8":"var(--border)"};border-radius:20px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:${s?"#fff":"var(--dim)"};cursor:pointer;transition:all .2s">${l.label}</button>`;
+  }).join("");
+}
+function toggleLeague(id){
+  if(id==="all"){selLeagues=new Set(["all"]);renderLeagueFilters();return;}
+  selLeagues.delete("all");
+  if(selLeagues.has(id))selLeagues.delete(id);else selLeagues.add(id);
+  if(!selLeagues.size)selLeagues.add("pl");
+  renderLeagueFilters();
+}
+
+// ── Fetch matchs du jour via Gemini Google Search ──────────
+async function fetchTodayMatches(){
+  const btn=document.getElementById("btn-today");
+  btn.disabled=true;
+  hide("today-error");show("today-loading");
+  const today=new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  const todayISO=new Date().toISOString().split("T")[0];
+  const leagueNames=selLeagues.has("all")
+    ?"tous championnats majeurs (Premier League, Liga, Ligue 1, Bundesliga, Serie A, Champions League, Europa League, Nations League)"
+    :[...selLeagues].map(id=>LEAGUE_FILTERS.find(l=>l.id===id)?.q).filter(Boolean).join(", ");
+  const prompt=
+    "Nous sommes le "+today+". Utilise Google Search pour trouver TOUS les vrais matchs de football qui se jouent AUJOURD'HUI dans: "+leagueNames+".\n"+
+    "Uniquement les matchs du "+today+". Pas hier, pas demain.\n"+
+    "Pour chaque match: equipe 1, equipe 2, competition exacte, heure locale.\n"+
+    "Minimum 5 matchs, maximum 20.\n\n"+
+    "JSON valide uniquement, zero texte autour:\n"+
+    "{\"date\":\""+todayISO+"\",\"matchs\":[{\"t1\":\"Arsenal\",\"t2\":\"Chelsea\",\"comp\":\"Premier League 2026/27\",\"heure\":\"17:30\"}]}";
+  try{
+    const raw=await callGemini(prompt,null,null);
+    const data=parseJSON(raw);
+    const found=data.matchs||[];
+    if(!found.length)throw new Error("Aucun match trouvé aujourd'hui. Ajoutez les matchs manuellement.");
+    const kept=matches.filter(m=>m.t1.trim()&&m.t2.trim());
+    const newM=found.map((m,i)=>({id:Date.now()+i,t1:m.t1||"",t2:m.t2||"",comp:m.comp||"Autre",date:todayISO,heure:m.heure||""}));
+    matches=[...kept,...newM];
+    renderMatches();
+    const ok=document.getElementById("today-error");
+    ok.style.display="block";ok.style.background="rgba(0,229,160,.08)";ok.style.borderColor="rgba(0,229,160,.25)";ok.style.color="#00e5a0";
+    ok.innerHTML="✅ "+found.length+" matchs trouvés pour aujourd'hui !";
+    setTimeout(()=>{ok.style.display="none";},4000);
+  }catch(ex){setErr("today-error",ex.message);}
+  finally{hide("today-loading");btn.disabled=false;}
+}
+
+function clearMatches(){
+  matches=[{id:1,t1:"",t2:"",comp:"UEFA Nations League 2026/27",date:new Date().toISOString().split("T")[0]}];
+  renderMatches();
+}
+
+// ── UI Helpers ─────────────────────────────────────────────
+function nc(n){const v=parseFloat(n)||0;return v>=16?"#00e5a0":v>=13?"#ffd600":v>=10?"#f97316":"#ff4d6d";}
+function nl(n){const v=parseFloat(n)||0;return v>=17?"EXCELLENT ✅":v>=14?"BON 👍":v>=11?"MOYEN ⚠️":"RISQUÉ ❌";}
+function noteCircle(note,sz=72){
+  const v=parseFloat(note)||0,c=nc(v),r=sz/2-5,ci=2*Math.PI*r,d=(v/20)*ci;
+  return`<div style="position:relative;width:${sz}px;height:${sz}px;flex-shrink:0"><svg width="${sz}" height="${sz}" style="transform:rotate(-90deg)"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="#1a2d45" stroke-width="5"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" fill="none" stroke="${c}" stroke-width="5" stroke-dasharray="${ci}" stroke-dashoffset="${ci-d}" stroke-linecap="round"/></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span style="font-family:'Bebas Neue',sans-serif;font-size:${Math.round(sz*.29)}px;color:${c};line-height:1">${v}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:${Math.round(sz*.1)}px;color:#1e4060">/20</span></div></div>`;
+}
+function pill(t,c="#00e5a0"){return`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:${c};background:${c}12;border:1px solid ${c}35;padding:2px 8px;border-radius:20px;display:inline-block;margin:2px">${t}</span>`;}
+function cBar(v,c){const p=Math.min(Math.max(parseFloat(v)||0,0),100);const col=c||(p>=70?"#00e5a0":p>=50?"#ffd600":"#ff4d6d");return`<div style="height:4px;background:#1a2d45;border-radius:2px;overflow:hidden;margin:4px 0"><div style="height:100%;width:${p}%;background:${col};border-radius:2px"></div></div>`;}
+function rBadge(r){const c=r==="FAIBLE"?"#00e5a0":r==="ÉLEVÉ"?"#ff4d6d":"#ffd600";return`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:${c};background:${c}14;border:1px solid ${c}40;padding:2px 8px;border-radius:20px">⚡ ${r||"MOYEN"}</span>`;}
+function show(id){const e=document.getElementById(id);if(e)e.style.display="block";}
+function hide(id){const e=document.getElementById(id);if(e)e.style.display="none";}
+function setErr(id,msg){const e=document.getElementById(id);if(e){e.innerHTML="⚠ "+msg;e.style.display="block";}}
+
+// ── Nav ────────────────────────────────────────────────────
+function switchMain(t){
+  mainTab=t;
+  hide("pane-verify");hide("pane-gen");show("pane-"+t);
+  const tv=t==="verify";
+  document.getElementById("mtab-verify").style.background=tv?"linear-gradient(135deg,#a78bfa,#7c3aed)":"transparent";
+  document.getElementById("mtab-verify").style.color=tv?"#fff":"var(--dim)";
+  document.getElementById("mtab-gen").style.background=!tv?"linear-gradient(135deg,#00e5a0,#00b4d8)":"transparent";
+  document.getElementById("mtab-gen").style.color=!tv?"#000":"var(--dim)";
+}
+function switchSub(t){
+  subTab=t;
+  ["config","coupons","analyse"].forEach(s=>{
+    const el=document.getElementById("sub-"+s);if(el)el.style.display=s===t?"block":"none";
+    const btn=document.getElementById("stab-"+s);
+    if(btn){btn.style.background=s===t?"linear-gradient(135deg,#00e5a0,#00b4d8)":"transparent";btn.style.color=s===t?"#000":"var(--dim)";btn.style.fontWeight=s===t?"700":"400";}
+  });
+}
+
+// ── Matches ────────────────────────────────────────────────
+function renderMatches(){
+  document.getElementById("match-count").textContent=matches.length;
+  document.getElementById("matches-list").innerHTML=matches.map((m,i)=>{
+    const opts=COMPS.map(c=>`<option${c===m.comp?" selected":""}>${c}</option>`).join("");
+    const prev=m.t1&&m.t2?`<div style="margin-top:9px;padding:7px 10px;background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.12);border-radius:8px;display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green)">${getFlag(m.t1)} ${m.t1} vs ${m.t2} ${getFlag(m.t2)}</div>`:"";
+    return`<div style="background:linear-gradient(135deg,#0a1929,#0c1e34);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;position:relative">
+      <div style="position:absolute;top:-9px;left:14px;background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:6px;padding:2px 10px;font-family:'Bebas Neue',sans-serif;font-size:12px;color:#000;letter-spacing:1px">MATCH ${i+1}</div>
+      <div style="margin-top:10px">
+        <div style="display:grid;grid-template-columns:1fr 26px 1fr;gap:6px;align-items:end;margin-bottom:9px">
+          <div><label>Équipe 1 ${getFlag(m.t1)}</label><input value="${m.t1}" placeholder="ex: France" oninput="updM(${m.id},'t1',this.value)"/></div>
+          <div style="padding-bottom:11px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)">VS</div>
+          <div><label>Équipe 2 ${getFlag(m.t2)}</label><input value="${m.t2}" placeholder="ex: Nigeria" oninput="updM(${m.id},'t2',this.value)"/></div>
+        </div>
+        <div style="margin-bottom:8px"><label>Compétition</label><select onchange="updM(${m.id},'comp',this.value)">${opts}</select></div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end">
+          <div><label>Date</label><input type="date" value="${m.date}" onchange="updM(${m.id},'date',this.value)"/></div>
+          ${matches.length>1?`<button onclick="removeMatch(${m.id})" style="background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.25);border-radius:10px;padding:11px 13px;color:#ff4d6d;cursor:pointer;font-size:14px;line-height:1">✕</button>`:""}
+        </div>
+        ${prev}
+        ${m.heure?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;background:rgba(0,180,216,.08);border:1px solid rgba(0,180,216,.2);border-radius:20px;padding:3px 10px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue)">🕐 ${m.heure}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+function addMatch(){const id=Math.max(...matches.map(m=>m.id))+1;matches.push({id,t1:"",t2:"",comp:"UEFA Nations League 2026/27",date:new Date().toISOString().split("T")[0]});renderMatches();}
+function removeMatch(id){matches=matches.filter(m=>m.id!==id);renderMatches();}
+function updM(id,k,v){const m=matches.find(x=>x.id===id);if(m){m[k]=v;renderMatches();}}
+
+function setNb(n){
+  nb=n;
+  document.querySelectorAll("#nb-btns button").forEach(b=>{
+    const a=parseInt(b.dataset.n)===n;
+    b.style.background=a?"linear-gradient(135deg,#00e5a0,#00b4d8)":"#060f1a";
+    b.style.color=a?"#000":"#2a5a78";b.style.border=a?"none":"1px solid var(--border)";
+  });
+  document.getElementById("nb-label").textContent=n;
+  renderStyles();
+}
+function renderStyles(){
+  document.getElementById("styles-list").innerHTML=COUPON_STYLES.slice(0,nb).map(s=>
+    `<div style="display:flex;align-items:center;gap:8px;padding:5px 10px;background:${s.bg}08;border:1px solid ${s.bg}25;border-radius:8px;margin-bottom:4px">
+      <div style="width:7px;height:7px;background:${s.bg};border-radius:50%;flex-shrink:0"></div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${s.bg}">${s.label}</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)">— ${s.sub}</span>
+    </div>`).join("");
+}
+function renderMarches(){
+  document.getElementById("m-count").textContent=selM.size;
+  document.getElementById("marches-list").innerHTML=MARCHES.map(m=>{
+    const s=selM.has(m.id);
+    return`<div onclick="toggleM('${m.id}')" style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:${s?m.color+"10":"var(--card)"};border:1px solid ${s?m.color+"50":"var(--border)"};border-radius:12px;cursor:pointer;user-select:none;margin-bottom:7px">
+      <div style="width:20px;height:20px;border-radius:6px;border:2px solid ${s?m.color:"var(--border2)"};background:${s?m.color:"transparent"};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        ${s?`<span style="font-size:11px;color:#000;font-weight:bold">✓</span>`:""}
+      </div>
+      <span style="font-size:18px;flex-shrink:0">${m.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-family:'Barlow',sans-serif;font-weight:600;color:${s?m.color:"#6a8fa8"}">${m.label}</div>
+        <div style="font-size:9px;color:var(--dim);font-family:'IBM Plex Mono',monospace">${m.desc}</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function toggleM(id){if(selM.has(id))selM.delete(id);else selM.add(id);renderMarches();}
+
+// ── File handling ──────────────────────────────────────────
+async function handleFile(e){
+  const file=e.target.files[0];if(!file)return;
+  const isPDF=file.type==="application/pdf"||file.name.toLowerCase().endsWith(".pdf");
+  const isImg=file.type.startsWith("image/");
+  if(!isPDF&&!isImg){alert("Utilisez JPG, PNG, WebP ou PDF.");return;}
+  try{
+    if(isPDF){
+      document.getElementById("v-msg").textContent="📄 Conversion PDF...";show("v-loading");
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+      const ab=await file.arrayBuffer();
+      const pdf=await window.pdfjsLib.getDocument({data:ab}).promise;
+      const p1=await pdf.getPage(1);
+      let vp=p1.getViewport({scale:1.0});
+      if(vp.width>1200)vp=p1.getViewport({scale:1200/vp.width});
+      const cv=document.createElement("canvas");cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+      const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,cv.width,cv.height);
+      await p1.render({canvasContext:ctx,viewport:vp}).promise;
+      let du=cv.toDataURL("image/jpeg",0.65);
+      let b64=du.split(",")[1];
+      if(b64.length*.75/1024>1500){du=cv.toDataURL("image/jpeg",0.4);b64=du.split(",")[1];}
+      couponFile={name:file.name,preview:du,b64,mime:"image/jpeg",isPDF:true,pages:pdf.numPages};
+      hide("v-loading");
+    } else {
+      const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
+      couponFile={name:file.name,preview:URL.createObjectURL(file),b64,mime:file.type,isPDF:false};
+    }
+    const dz=document.getElementById("drop-zone");
+    dz.style.borderColor="rgba(0,229,160,.5)";dz.style.cursor="default";
+    document.getElementById("drop-content").innerHTML=`
+      ${couponFile.isPDF?`<div style="font-size:32px;margin-bottom:4px">📄</div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);margin-bottom:6px">PDF · p.1/${couponFile.pages}</div>`:``}
+      <img src="${couponFile.preview}" style="max-width:100%;max-height:180px;border-radius:8px;object-fit:contain;margin-bottom:8px"/>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
+        ${pill("✓ "+couponFile.name)}
+        <button onclick="clearFile(event)" style="background:rgba(255,77,109,.15);border:1px solid rgba(255,77,109,.3);border-radius:6px;padding:3px 10px;color:#ff4d6d;cursor:pointer;font-size:11px">✕ Supprimer</button>
+      </div>`;
+    document.getElementById("coupon-text").value="";
+  }catch(ex){hide("v-loading");setErr("v-error","Erreur lecture: "+ex.message);}
+}
+function clearFile(e){
+  e.stopPropagation();couponFile=null;
+  document.getElementById("file-in").value="";
+  const dz=document.getElementById("drop-zone");dz.style.borderColor="var(--border2)";dz.style.cursor="pointer";
+  document.getElementById("drop-content").innerHTML=`<div style="font-size:36px;margin-bottom:8px">📷</div><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);line-height:1.9">Touchez pour importer<br><span style="font-size:9px">📷 JPG · PNG · WebP</span><br><span style="font-size:9px;color:var(--blue)">📄 PDF (converti auto)</span></div>`;
+}
+
+// ── VERIFY ─────────────────────────────────────────────────
+async function verifyCoupon(){
+  const hasFile=!!(couponFile?.b64);
+  const txt=document.getElementById("coupon-text").value.trim();
+  if(!hasFile&&txt.length<5){setErr("v-error","Importez un fichier ou collez vos paris.");return;}
+  hide("v-error");document.getElementById("v-results").style.display="none";
+  document.getElementById("btn-verify").disabled=true;show("v-loading");
+  const today=new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  const engine=IS_CLAUDE?"Claude":"Gemini";
+  document.getElementById("v-msg").textContent="🔍 "+engine+" analyse le coupon...";
+  try{
+    const SCHEMA=`{
+  "coupon_analyse": {
+    "nb_paris": 2,
+    "paris": [{
+      "numero": 1, "match": "T1 vs T2", "t1": "T1", "t2": "T2",
+      "competition": "Comp", "marche": "Marche", "selection": "Sel",
+      "cote": "1.75", "note": 15, "verdict": "VALIDE",
+      "probabilite_estimee": "65%",
+      "stat_cle": "Stat concrete 2026/2027",
+      "analyse": "Analyse experte 2 phrases.",
+      "suggestion_experte": {
+        "marche_suggere": "Plus de 1.5 buts",
+        "selection_suggeree": "OUI",
+        "note_suggeree": 18,
+        "raison": "Raison 1 phrase avec stat."
+      }
+    }],
+    "resume": {
+      "note_moyenne": 15.0, "paris_valides": 1, "paris_risques": 1,
+      "conseil_global": "Conseil.", "point_fort": "Meilleur.", "point_faible": "Risque."
+    }
+  }
+}`;
+    const SYS="Tu es expert analyste football et parieur professionnel. "+today+". Note chaque pari sur 20 INDIVIDUELLEMENT. Si note<17 fournis suggestion_experte. JAMAIS parler du coupon global. JSON UNIQUEMENT. Zero texte autour. Zero backtick.";
+    const intro=hasFile?"Lis ce coupon de paris sportifs et analyse chaque pari individuellement sur 20. JSON:\n":"Analyse ces paris et note chacun sur 20. JSON:\n";
+    const USR=intro+SCHEMA+(hasFile?"":"\n\nPARIS:\n"+txt);
+    const raw=await callAI(SYS,USR,hasFile?couponFile.b64:null,hasFile?couponFile.mime:null);
+    const data=parseJSON(raw);
+    renderVerify(data.coupon_analyse||data);
+  }catch(ex){setErr("v-error",ex.message);console.error(ex);}
+  finally{hide("v-loading");document.getElementById("btn-verify").disabled=false;}
+}
+
+function renderVerify(vr){
+  const paris=vr?.paris||[];const resume=vr?.resume||null;
+  const vC={"VALIDE":"#00e5a0","ACCEPTABLE":"#ffd600","RISQUE":"#f97316","DECONSEILLE":"#ff4d6d"};
+  let h="";
+  if(resume){
+    const nm=parseFloat(resume.note_moyenne||0).toFixed(1);
+    h+=`<div style="background:linear-gradient(135deg,#0f1e36,#1a1040);border:1px solid rgba(167,139,250,.3);border-radius:14px;padding:16px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+        ${noteCircle(nm,82)}
+        <div style="flex:1">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--purple);letter-spacing:2px;margin-bottom:4px">NOTE GLOBALE</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${nc(nm)};line-height:1">${nl(nm)}</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);margin-top:4px">✅ ${resume.paris_valides||0} validé(s) · ⚠️ ${resume.paris_risques||0} risqué(s)</div>
+        </div>
+      </div>
+      ${resume.conseil_global?`<div style="font-size:12px;color:#8fb5cc;line-height:1.6;margin-bottom:10px">${resume.conseil_global}</div>`:""}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${resume.point_fort?`<div style="background:rgba(0,229,160,.06);border:1px solid rgba(0,229,160,.15);border-radius:8px;padding:8px 10px"><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--green);margin-bottom:3px">💪 MEILLEUR</div><div style="font-size:11px;color:var(--text);line-height:1.5">${resume.point_fort}</div></div>`:""}
+        ${resume.point_faible?`<div style="background:rgba(255,77,109,.06);border:1px solid rgba(255,77,109,.15);border-radius:8px;padding:8px 10px"><div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--red);margin-bottom:3px">⚠️ RISQUÉ</div><div style="font-size:11px;color:var(--text);line-height:1.5">${resume.point_faible}</div></div>`:""}
+      </div>
+    </div>`;
+  }
+  h+=`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:10px">ANALYSE PAR PARI — ${paris.length} SÉLECTION(S)</div>`;
+  paris.forEach((p,i)=>{
+    const vc=vC[p.verdict]||"#5a7a99";
+    const sg=p.suggestion_experte;
+    const hasSugg=sg&&sg!=="null"&&typeof sg==="object"&&(p.note||0)<17;
+    const snc=hasSugg?(sg.note_suggeree>=17?"#00e5a0":sg.note_suggeree>=14?"#ffd600":"#f97316"):"";
+    h+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:10px">
+      <div style="background:linear-gradient(135deg,#0d1f35,#0a1526);padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap">
+              <span style="background:linear-gradient(135deg,#a78bfa,#7c3aed);border-radius:5px;padding:1px 7px;font-family:'Bebas Neue',sans-serif;font-size:11px;color:#fff">${p.numero||i+1}</span>
+              <span style="font-size:14px">${getFlag(p.t1||"")}</span>
+              <span style="font-family:'Barlow',sans-serif;font-weight:700;font-size:12px;color:var(--text)">${p.match}</span>
+              <span style="font-size:14px">${getFlag(p.t2||"")}</span>
+            </div>
+            ${p.competition&&p.competition!=="null"?`<div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--dim);margin-bottom:5px">🏆 ${p.competition}</div>`:""}
+            <div>${pill(p.marche,"#a78bfa")}${pill("→ "+p.selection,"#ffd600")}${p.cote&&p.cote!=="null"?pill("@"+p.cote,"#5a7a99"):""}</div>
+          </div>
+          ${noteCircle(p.note||0,60)}
+        </div>
+      </div>
+      <div style="padding:11px 14px">
+        <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${vc};background:${vc}14;border:1px solid ${vc}40;padding:3px 10px;border-radius:20px">${p.verdict}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${nc(p.note||0)}">${p.probabilite_estimee}</span>
+        </div>
+        ${p.stat_cle?`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--yellow);background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:6px;padding:5px 9px;margin-bottom:7px">📊 ${p.stat_cle}</div>`:""}
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:${hasSugg?8:0}px">${p.analyse}</div>
+        ${hasSugg?`<div style="background:linear-gradient(135deg,rgba(0,229,160,.06),rgba(0,180,216,.04));border:1px solid rgba(0,229,160,.25);border-radius:10px;overflow:hidden">
+          <div style="background:rgba(0,229,160,.08);padding:7px 12px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(0,229,160,.15)">
+            <span>💡</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px">MEILLEURE OPTION SUGGÉRÉE</span>
+          </div>
+          <div style="padding:10px 12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue);background:rgba(0,180,216,.1);border:1px solid rgba(0,180,216,.25);padding:2px 8px;border-radius:6px;display:inline-block;margin-bottom:4px">✦ ${sg.marche_suggere}</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--green);line-height:1">${sg.selection_suggeree}</div>
+              </div>
+              <div style="text-align:center;background:${snc}12;border:1px solid ${snc}40;border-radius:10px;padding:8px 12px">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:${snc};margin-bottom:2px">NOTE EST.</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${snc};line-height:1">${sg.note_suggeree}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--dim)">/20</div>
+              </div>
+            </div>
+            ${sg.raison?`<div style="font-size:11px;color:#8fb5cc;line-height:1.6;border-top:1px solid rgba(0,229,160,.1);padding-top:7px"><span style="color:var(--green);font-weight:700">Pourquoi : </span>${sg.raison}</div>`:""}
+          </div>
+        </div>`:""}
+      </div>
+    </div>`;
+  });
+  h+=`<button onclick="resetVerify()" style="width:100%;margin-top:4px;background:transparent;border:1px solid var(--border);border-radius:10px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer">🔄 Analyser un autre coupon</button>`;
+  const el=document.getElementById("v-results");el.innerHTML=h;el.style.display="block";
+}
+function resetVerify(){document.getElementById("v-results").style.display="none";document.getElementById("v-results").innerHTML="";clearFile({stopPropagation:()=>{}});document.getElementById("coupon-text").value="";}
+
+// ── GENERATE ────────────────────────────────────────────────
+async function generate(){
+  const valid=matches.filter(m=>m.t1.trim()&&m.t2.trim());
+  if(!valid.length){setErr("g-error","Ajoutez au moins une rencontre.");return;}
+  if(!selM.size){setErr("g-error","Sélectionnez au moins un marché.");return;}
+  hide("g-error");document.getElementById("btn-gen").disabled=true;show("g-loading");
+  const today=new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  const engine=IS_CLAUDE?"Claude Sonnet 4":"Gemini 2.0 Flash";
+  const steps=["🔍 "+engine+" analyse les rencontres...","📊 Étude forme, stats, blessés...","🧠 Construction des "+nb+" coupons..."];
+  let si=0;
+  const timer=setInterval(()=>{if(si<steps.length)document.getElementById("g-msg").textContent=steps[si++];},2000);
+  try{
+    const matchLines=valid.map((m,i)=>(i+1)+". "+m.t1+" vs "+m.t2+" ("+m.comp+" — "+m.date+")").join("\n");
+    const mList=[...selM].slice(0,5).map(id=>{const md=MARCHES.find(x=>x.id===id);return md?md.label:id;}).join(", ");
+    const sInfo=COUPON_STYLES.slice(0,nb).map((s,i)=>(i+1)+". "+s.id+"="+s.label).join("; ");
+    const SYS="Tu es expert football et parieur professionnel. "+today+". SEUILS: Fautes 20-28/match(+de 22.5), Tirs cadres 5-9/match(+de 6.5), Tirs au but 9-14/match(+de 11.5). But 86-90: OUI si historique>30%. JAMAIS seuils impossibles. JSON uniquement. Zero texte autour. Textes courts max 12 mots.";
+    const USR="Genere "+nb+" coupons differents.\nMATCHS:\n"+matchLines+"\nMARCHES: "+mList+"\nSTRATEGIES: "+sInfo+"\n\nJSON:\n{\"analyses\":[{\"match\":\"T1 vs T2\",\"t1\":\"T1\",\"t2\":\"T2\",\"comp\":\"C\",\"forme_t1\":\"V V N D V\",\"forme_t2\":\"D V N V D\",\"blesses_t1\":[],\"blesses_t2\":[],\"stats\":{\"fautes_moy\":\"23/m\",\"fautes_seuil\":\"+de 21.5\",\"tirs_cadres_moy\":\"7/m\",\"tirs_cadres_seuil\":\"+de 6.5\",\"tirs_but_moy\":\"12/m\",\"tirs_but_seuil\":\"+de 11.5\",\"pct_but_86_90\":\"28%\",\"pct_but_ta\":\"22%\",\"pct_remplacant_but\":\"32%\"},\"contexte\":\"Court.\",\"tendance_fin\":\"Court.\"}],\"coupons\":[{\"id\":\"securise\",\"label\":\"SECURISE\",\"strategie\":\"Court.\",\"confiance_globale\":74,\"risque\":\"FAIBLE\",\"conseil\":\"Court.\",\"selections\":[{\"match\":\"T1 vs T2\",\"marche\":\"But 86-90 min\",\"marche_id\":\"but_86_90\",\"selection\":\"OUI\",\"seuil\":null,\"confiance\":70,\"stat_cle\":\"Stat.\",\"raisonnement\":\"Raison.\"}]}]}";
+    const raw=await callAI(SYS,USR,null,null);
+    clearInterval(timer);
+    genResult=parseJSON(raw);
+    renderCoupons();renderAnalyse();
+    switchSub("coupons");
+    document.getElementById("stab-coupons").textContent="🎯 Coupons ✓";
+  }catch(ex){clearInterval(timer);setErr("g-error",ex.message);console.error(ex);}
+  finally{hide("g-loading");document.getElementById("btn-gen").disabled=false;}
+}
+
+function renderCoupons(){
+  if(!genResult)return;
+  const coupons=genResult.coupons||[];
+  hide("c-empty");document.getElementById("c-content").style.display="block";
+  let h="<div style='margin-bottom:12px'>";
+  coupons.forEach((c,i)=>{
+    const st=COUPON_STYLES[i]||COUPON_STYLES[0];const active=i===actC;
+    h+=`<button onclick="setActC(${i})" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:${active?st.bg+"18":"var(--card)"};border:2px solid ${active?st.bg:"var(--border)"};border-radius:12px;cursor:pointer;width:100%;margin-bottom:7px;text-align:left;box-shadow:${active?"0 0 20px "+st.bg+"35":"none"}">
+      <div><div style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:${active?st.bg:"#3a6a88"};letter-spacing:1px">${st.label}</div><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)">${c.strategie||st.sub}</div></div>
+      <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${active?st.bg:"#2a5a78"};line-height:1">${c.confiance_globale||"—"}%</div>${rBadge(c.risque)}</div>
+    </button>`;
+  });
+  h+="</div>";
+  const cur=coupons[actC];const curSt=COUPON_STYLES[actC]||COUPON_STYLES[0];
+  if(cur){
+    h+=`<div style="background:linear-gradient(135deg,${curSt.bg},${curSt.bg}99);border-radius:14px 14px 0 0;padding:14px 16px;display:flex;justify-content:space-between;align-items:center">
+      <div><div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#000;letter-spacing:3px">${curSt.label}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:rgba(0,0,0,.55)">${(cur.selections||[]).length} sél. · ${IS_CLAUDE?"Claude":"Gemini"} 2026</div></div>
+      <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:42px;color:#000;line-height:1">${cur.confiance_globale||"—"}%</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:rgba(0,0,0,.5)">CONFIANCE</div></div>
+    </div>
+    <div style="height:1px;background:repeating-linear-gradient(90deg,#1a2d45 0,#1a2d45 8px,transparent 8px,transparent 16px)"></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-top:none;padding:14px 16px">`;
+    (cur.selections||[]).forEach((sel,i)=>{
+      const mDef=MARCHES.find(x=>x.id===sel.marche_id||x.label===sel.marche)||{color:curSt.bg,icon:"⚽"};
+      const hs=sel.seuil&&sel.seuil!=="null"&&sel.seuil!==null;
+      const pts=(sel.match||"").split(" vs ");
+      h+=`<div style="padding:13px 0;border-bottom:${i<(cur.selections||[]).length-1?"1px solid #0d2035":"none"}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+          <div style="width:22px;height:22px;border-radius:50%;background:${mDef.color}20;border:1px solid ${mDef.color}50;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:12px;color:${mDef.color};flex-shrink:0">${i+1}</div>
+          <span>${getFlag(pts[0]||"")}</span><span style="font-family:'Barlow',sans-serif;font-weight:700;font-size:13px;color:var(--text)">${sel.match}</span><span>${getFlag(pts[1]||"")}</span>
+        </div>
+        <div style="background:${mDef.color}0a;border:1px solid ${mDef.color}25;border-radius:10px;padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:${mDef.color};background:${mDef.color}18;padding:2px 8px;border-radius:6px;display:inline-block;margin-bottom:4px">${mDef.icon} ${sel.marche}</span>
+              ${hs?`<span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--yellow);background:rgba(255,214,0,.1);border:1px solid rgba(255,214,0,.25);padding:2px 8px;border-radius:6px;display:inline-block;margin-left:4px;margin-bottom:4px">📏 ${sel.seuil}</span>`:""}
+            </div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:${mDef.color};flex-shrink:0;margin-left:8px">${sel.selection}</div>
+          </div>
+          ${sel.stat_cle?`<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--yellow);background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:6px;padding:4px 9px;margin-bottom:5px">📊 ${sel.stat_cle}</div>`:""}
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:5px">${sel.raisonnement}</div>
+          ${cBar(sel.confiance||70,mDef.color)}
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--dim)">${sel.confiance||"—"}%</div>
+        </div>
+      </div>`;
+    });
+    h+=`</div><div style="height:1px;background:repeating-linear-gradient(90deg,#1a2d45 0,#1a2d45 8px,transparent 8px,transparent 16px)"></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 14px 14px;padding:12px 16px">
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${rBadge(cur.risque)}${pill("✅ "+(cur.selections||[]).length+" sél.","#00e5a0")}</div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">${cur.conseil||"—"}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:center">`;
+    coupons.forEach((_,i)=>{const s=COUPON_STYLES[i]||COUPON_STYLES[0];h+=`<div onclick="setActC(${i})" style="width:10px;height:10px;border-radius:50%;background:${actC===i?s.bg:"var(--border)"};cursor:pointer"></div>`;});
+    h+="</div>";
+  }
+  document.getElementById("c-content").innerHTML=h;
+}
+function setActC(i){actC=i;renderCoupons();}
+
+function renderAnalyse(){
+  if(!genResult)return;
+  const analyses=genResult.analyses||[];
+  hide("a-empty");document.getElementById("a-content").style.display="block";
+  document.getElementById("a-content").innerHTML=analyses.map((a,i)=>`
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:12px">
+      <div style="background:linear-gradient(135deg,#0d2137,#071629);padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:6px;padding:2px 8px;font-family:'Bebas Neue',sans-serif;font-size:12px;color:#000">#${i+1}</span>
+          <span>${getFlag(a.t1)}</span><span style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--green)">${a.t1}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--dim)">VS</span>
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:17px;color:var(--red)">${a.t2}</span><span>${getFlag(a.t2)}</span>
+        </div>
+      </div>
+      <div style="padding:12px 14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          ${[{t:a.t1,f:a.forme_t1,c:"var(--green)",b:a.blesses_t1},{t:a.t2,f:a.forme_t2,c:"var(--red)",b:a.blesses_t2}].map(x=>`
+          <div style="background:#060f1a;border:1px solid var(--border);border-top:2px solid ${x.c};border-radius:8px;padding:9px 10px">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:${x.c};margin-bottom:3px">${getFlag(x.t)} ${x.t}</div>
+            <div style="font-size:10px;color:var(--muted);line-height:1.4">${x.f||"—"}</div>
+            ${x.b&&x.b.length?`<div style="font-size:9px;color:#ff6b6b;margin-top:3px">${x.b.join(" · ")}</div>`:""}
+          </div>`).join("")}
+        </div>
+        ${a.stats?`<div style="background:rgba(0,180,216,.05);border:1px solid rgba(0,180,216,.15);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue);margin-bottom:8px">📊 STATS 2026/2027</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            ${[{l:"Fautes",v:a.stats.fautes_moy,c:"#f97316",s:a.stats.fautes_seuil},{l:"Tirs cadrés",v:a.stats.tirs_cadres_moy,c:"#34d399",s:a.stats.tirs_cadres_seuil},{l:"Tirs au but",v:a.stats.tirs_but_moy,c:"var(--blue)",s:a.stats.tirs_but_seuil},{l:"But 86-90'",v:a.stats.pct_but_86_90,c:"var(--red)"},{l:"But TA",v:a.stats.pct_but_ta,c:"var(--yellow)"},{l:"Rempl.",v:a.stats.pct_remplacant_but,c:"var(--purple)"}].map(s=>`
+            <div style="background:#060f1a;border:1px solid var(--border);border-radius:7px;padding:7px 9px">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--dim);margin-bottom:2px">${s.l}</div>
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;color:${s.c}">${s.v||"—"}</div>
+              ${s.s?`<div style="font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--yellow)">→ ${s.s}</div>`:""}
+            </div>`).join("")}
+          </div>
+        </div>`:""}
+        ${a.tendance_fin?`<div style="background:rgba(255,77,109,.05);border:1px solid rgba(255,77,109,.12);border-radius:8px;padding:9px 11px;margin-bottom:8px"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--red);margin-bottom:5px">⏱ FIN DE MATCH</div><div style="font-size:11px;color:var(--text);line-height:1.6">${a.tendance_fin}</div></div>`:""}
+        ${a.contexte?`<div style="background:rgba(0,229,160,.04);border:1px solid rgba(0,229,160,.1);border-radius:8px;padding:9px 11px"><div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--green);margin-bottom:4px">💬 CONTEXTE</div><div style="font-size:11px;color:#8fb5cc;line-height:1.6">${a.contexte}</div></div>`:""}
+      </div>
+    </div>`).join("");
+}
+
+// ── Init ────────────────────────────────────────────────────
+initEngine();
+renderMatches();renderStyles();renderMarches();renderLeagueFilters();
+</script>
+</body>
+</html>
