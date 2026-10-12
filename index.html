@@ -188,7 +188,7 @@ textarea{resize:vertical;min-height:110px;line-height:1.6}
 </div>
 
 <div style="margin-top:28px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#1a3a52;letter-spacing:1px;padding-bottom:20px">
-  PROBET v10.1 · Auto-detect IA · Note /20 · Expert Football 2026/2027 · © 2027
+  PROBET v10.2 · Auto-detect IA · Note /20 · Expert Football 2026/2027 · © 2027
 </div>
 </div>
 
@@ -247,7 +247,7 @@ function initEngine() {
       pill("♾️ Session Claude.ai","#5a7a99") +
       pill("📅 2026/2027","#ffd600");
   } else {
-    label.textContent = "GEMINI 2.0 FLASH · GOOGLE SEARCH · 2026/2027";
+    label.textContent = "GEMINI 3.8 FLASH · GOOGLE SEARCH · 2026/2027";
     live.textContent = "GEMINI";
     badges.innerHTML =
       pill("🔍 Gemini + Google Search","#00b4d8") +
@@ -265,7 +265,7 @@ async function callGemini(prompt, imageB64, imageMime) {
     window.scrollTo({top:0,behavior:"smooth"});
     throw new Error("Ajoute d'abord ta clé API Gemini en haut de la page.");
   }
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + encodeURIComponent(key);
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(key);
   const parts = [];
   if (imageB64 && imageMime) parts.push({ inline_data: { mime_type: imageMime, data: imageB64 } });
   parts.push({ text: prompt });
@@ -700,7 +700,7 @@ async function generate(){
   if(!selM.size){setErr("g-error","Sélectionnez au moins un marché.");return;}
   hide("g-error");document.getElementById("btn-gen").disabled=true;show("g-loading");
   const today=new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
-  const engine=IS_CLAUDE?"Claude Sonnet 4":"Gemini 2.0 Flash";
+  const engine=IS_CLAUDE?"Claude Sonnet 4":"Gemini 3.8 Flash";
   const steps=["🔍 "+engine+" analyse les rencontres...","📊 Étude forme, stats, blessés...","🧠 Construction des "+nb+" coupons..."];
   let si=0;
   const timer=setInterval(()=>{if(si<steps.length)document.getElementById("g-msg").textContent=steps[si++];},2000);
