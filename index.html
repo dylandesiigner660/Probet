@@ -331,7 +331,7 @@ function sameTeam(a,b){
   if(A.g.length&&B.g.length&&!A.g.some(x=>B.g.includes(x)))return false; // ex. Manchester City ≠ Manchester United
   return true;
 }
-const COVERED_RE=/champions|europa|conf[ée]rence|premier league|\bepl\b|championship|la ?liga|segunda|serie a|serie b|bundesliga|ligue 1|ligue 2|primeira|liga portugal|eredivisie|s[üu]per lig|pro league|\bmls\b|brasil|brazil|liga profesional|saudi|j1|j-league|a-league|scottish|premiership|allsvenskan|eliteserien|superliga|ekstraklasa|coupe de france|fa cup|copa del rey|coppa italia|dfb|nations league|libertadores|sudamericana/i;
+const COVERED_RE=/\bliga\b|espagne|italie|allemagne|angleterre|pays-bas|champions|europa|conf[ée]rence|premier league|\bepl\b|championship|la ?liga|segunda|serie a|serie b|bundesliga|ligue 1|ligue 2|primeira|liga portugal|eredivisie|s[üu]per lig|pro league|\bmls\b|brasil|brazil|liga profesional|saudi|j1|j-league|a-league|scottish|premiership|allsvenskan|eliteserien|superliga|ekstraklasa|coupe de france|fa cup|copa del rey|coppa italia|dfb|nations league|libertadores|sudamericana/i;
 function swapCode(s){const m={"1":"2","2":"1","1X":"X2","X2":"1X"};const k=String(s).trim().toUpperCase();return m[k]||s;}
 // ── Calendrier réel : chargement des événements (gratuit, sans crédit) ──
 const TOP_KEYS=["soccer_uefa_champs_league","soccer_uefa_europa_league","soccer_uefa_europa_conference_league","soccer_epl","soccer_spain_la_liga","soccer_italy_serie_a","soccer_germany_bundesliga","soccer_france_ligue_one","soccer_portugal_primeira_liga","soccer_netherlands_eredivisie"];
@@ -388,7 +388,7 @@ async function fixturesFromOdds(want,avoid){
   // répartition entre championnats (round-robin) pour varier
   const order=keys.filter(k=>byKey[k]);const picked=[];
   while(picked.length<want&&order.some(k=>byKey[k].length)){for(const k of order){if(byKey[k].length&&picked.length<want)picked.push(byKey[k].shift());}}
-  return picked.map(e=>{const t=new Date(e.commence_time);return{t1:e.home_team,t2:e.away_team,comp:e.sport_title,date:localDay(t),heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),cal:true};});
+  return picked.map(e=>{const t=new Date(e.commence_time);return{t1:e.home_team,t2:e.away_team,comp:frComp(e.sport_title),date:localDay(t),heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),cal:true};});
 }
 async function verifyFixtures(sels,opt){
   opt=opt||{};
@@ -416,7 +416,7 @@ async function verifyFixtures(sels,opt){
       if(opt.day&&localDay(e.commence_time)!==opt.day){removed.push({match:s.match,why:"ne se joue pas ce jour-là (prévu le "+new Date(e.commence_time).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+")"});continue;}
       const reversed=sameTeam(s._t1,e.away_team)&&!sameTeam(s._t1,e.home_team);
       const t=new Date(e.commence_time);
-      const n=Object.assign({},s,{verif:"ok",match:e.home_team+" vs "+e.away_team,competition:e.sport_title||s._c,heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),date:localDay(t)});
+      const n=Object.assign({},s,{verif:"ok",match:e.home_team+" vs "+e.away_team,competition:frComp(e.sport_title)||s._c,heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),date:localDay(t)});
       if(reversed&&/1x2|r[ée]sultat|double|vainqueur|dc/i.test(String(s.marche||"")))n.selection=swapCode(s.selection);
       final.push(n);
     }else if(COVERED_RE.test(s._c)&&!failed){removed.push({match:s.match,why:"introuvable au calendrier ("+s._c+")"});}
@@ -433,6 +433,25 @@ function verifBadge(v){
 }
 async function strictSearch(fn){st.strictSearch=true;try{return await fn();}finally{st.strictSearch=false;}}
 
+// ── Traduction FR des marchés, sélections et compétitions ──
+const FR_TERMS=[
+ [/both teams to score|\bbtts\b|both teams score/gi,"Les deux équipes marquent"],
+ [/total goals over\/under|goals over\/under|over\/under goals|total goals/gi,"Plus/Moins de buts"],
+ [/over\/under/gi,"Plus/Moins"],
+ [/\bover\s*(\d+(?:[.,]\d+)?)/gi,"Plus de $1"],[/\bunder\s*(\d+(?:[.,]\d+)?)/gi,"Moins de $1"],
+ [/^\s*over\s*$/gi,"Plus"],[/^\s*under\s*$/gi,"Moins"],
+ [/double chance/gi,"Double chance"],[/draw no bet/gi,"Remboursé si nul"],
+ [/full[- ]time result|match result|match winner|money ?line|\bh2h\b|1x2/gi,"Résultat 1X2"],
+ [/half[- ]time result|1st half result|first half result/gi,"Résultat mi-temps"],
+ [/asian handicap/gi,"Handicap asiatique"],[/european handicap/gi,"Handicap européen"],
+ [/shots on target/gi,"Tirs cadrés"],[/total shots|shots/gi,"Tirs"],[/fouls/gi,"Fautes"],[/cards|bookings/gi,"Cartons"],[/corners/gi,"Corners"],
+ [/anytime goalscorer|anytime scorer|to score anytime/gi,"Buteur"],[/clean sheet/gi,"Sans encaisser"],[/winner/gi,"Vainqueur"],
+ [/\bor draw\b/gi,"ou nul"],[/\bdraw\b/gi,"Nul"],[/\bhome\b/gi,"Domicile"],[/\baway\b/gi,"Extérieur"],[/\bto win\b/gi,"gagne"],
+ [/^\s*yes\s*$/gi,"OUI"],[/^\s*no\s*$/gi,"NON"],[/\byes\b/gi,"oui"],[/\bno\b(?!\.)/gi,"non"],[/\bgoals\b/gi,"buts"],[/\bgoal\b/gi,"but"]
+];
+function fr(s){let t=String(s==null?"":s);FR_TERMS.forEach(([re,r])=>{t=t.replace(re,r);});return t;}
+const FR_COMP=[[/uefa europa conference league|europa conference league|conference league/i,"Ligue Conférence"],[/uefa europa league|europa league/i,"Ligue Europa"],[/uefa champions league|champions league/i,"Ligue des champions"],[/uefa nations league/i,"Ligue des nations"],[/^epl$|english premier league/i,"Premier League (Angleterre)"],[/efl championship|^championship$/i,"Championship (Angleterre)"],[/la liga - spain|^la liga$/i,"Liga (Espagne)"],[/la liga 2 - spain|segunda/i,"Liga 2 (Espagne)"],[/serie a - italy|^serie a$/i,"Serie A (Italie)"],[/serie b - italy/i,"Serie B (Italie)"],[/bundesliga - germany|^bundesliga$/i,"Bundesliga (Allemagne)"],[/bundesliga 2/i,"2. Bundesliga (Allemagne)"],[/ligue 1 - france|^ligue 1$/i,"Ligue 1 (France)"],[/ligue 2 - france/i,"Ligue 2 (France)"],[/primeira liga - portugal|primeira liga/i,"Liga Portugal"],[/dutch eredivisie|eredivisie/i,"Eredivisie (Pays-Bas)"],[/turkey super league|super lig/i,"Süper Lig (Turquie)"],[/belgium first div/i,"Pro League (Belgique)"],[/scottish premiership/i,"Premiership (Écosse)"],[/brazil s[ée]rie a|campeonato brasileiro/i,"Série A (Brésil)"],[/^mls$/i,"MLS (États-Unis)"],[/saudi pro league|saudi arabia/i,"Saudi Pro League"],[/fa cup/i,"FA Cup"],[/copa libertadores/i,"Copa Libertadores"]];
+function frComp(s){const t=String(s||"");for(const [re,r] of FR_COMP) if(re.test(t)) return r;return t.replace(/ - Spain/,"(Espagne)").replace(/ - Italy/," (Italie)").replace(/ - Germany/," (Allemagne)").replace(/ - France/," (France)").replace(/ - Portugal/," (Portugal)").replace(/ - England/," (Angleterre)");}
 function parseJSON(raw){
   let t=raw.replace(/```json\s*/gi,"").replace(/```\s*/g,"").trim();
   const s=t.indexOf("{"),e=t.lastIndexOf("}"); if(s>=0&&e>s) t=t.slice(s,e+1);
@@ -446,7 +465,7 @@ function parseJSON(raw){
   }catch(_){ throw new Error("Réponse IA illisible. Réessaie."); }
 }
 
-const SYS_EXPERT="Tu es PROBET, analyste football professionnel et parieur stratégique. RÈGLE ABSOLUE MARCHÉS FIN DE MATCH (Remplaçant buteur, But entre 80 et 90 min / 86-90 min, But dans le temps additionnel) : sur ces trois marchés, la seule sélection autorisée est NON. Ne les propose QUE si ton analyse montre que l'événement est très improbable dans ce match (équipes peu prolifiques en fin de match, faibles moyennes de buts tardifs, peu de remplaçants offensifs, rythme lent, enjeu faible). Si l'événement est probable, n'utilise PAS ces marchés : choisis un autre marché autorisé. Ne mets JAMAIS OUI sur ces trois marchés. MARCHÉ « MATCH NUL » : uniquement la sélection NON (le match ne se terminera pas sur un nul), seulement si un nul est improbable. Méthode obligatoire : forme récente (5 derniers matchs), domicile/extérieur, confrontations directes, absences (blessures, suspensions), enjeu et motivation, fatigue/calendrier, statistiques (xG, buts, tirs, corners, fautes, cartons) et cotes du marché. Tu cherches la VALEUR : probabilité estimée × cote > 1. Tu n'inventes jamais un match : uniquement des rencontres réelles trouvées par recherche. Si les données manquent, tu baisses la note et la confiance. Seuils réalistes : fautes 20-28/match, tirs cadrés 5-9/match, corners 8-12/match, cartons 3-6/match. Réponds UNIQUEMENT en JSON valide, sans texte autour, sans backticks, textes courts (max 18 mots).";
+const SYS_EXPERT="Tu es PROBET, analyste football professionnel et parieur stratégique. RÈGLE ABSOLUE MARCHÉS FIN DE MATCH (Remplaçant buteur, But entre 80 et 90 min / 86-90 min, But dans le temps additionnel) : sur ces trois marchés, la seule sélection autorisée est NON. Ne les propose QUE si ton analyse montre que l'événement est très improbable dans ce match (équipes peu prolifiques en fin de match, faibles moyennes de buts tardifs, peu de remplaçants offensifs, rythme lent, enjeu faible). Si l'événement est probable, n'utilise PAS ces marchés : choisis un autre marché autorisé. Ne mets JAMAIS OUI sur ces trois marchés. MARCHÉ « MATCH NUL » : uniquement la sélection NON (le match ne se terminera pas sur un nul), seulement si un nul est improbable. Méthode obligatoire : forme récente (5 derniers matchs), domicile/extérieur, confrontations directes, absences (blessures, suspensions), enjeu et motivation, fatigue/calendrier, statistiques (xG, buts, tirs, corners, fautes, cartons) et cotes du marché. Tu cherches la VALEUR : probabilité estimée × cote > 1. Tu n'inventes jamais un match : uniquement des rencontres réelles trouvées par recherche. Si les données manquent, tu baisses la note et la confiance. Seuils réalistes : fautes 20-28/match, tirs cadrés 5-9/match, corners 8-12/match, cartons 3-6/match. Écris TOUT en français (noms de marchés et sélections en français : « Les deux équipes marquent », « Moins de 2.5 buts », « Double chance 1X », « OUI/NON » ; jamais Over/Under, BTTS, Yes/No). Réponds UNIQUEMENT en JSON valide, sans texte autour, sans backticks, textes courts (max 18 mots).";
 
 // ── Catalogue des championnats ────────────────────────────────
 const CATALOG=[
@@ -773,7 +792,7 @@ function viewMatch(m){
 }
 function pickHTML(p,memKey,path,base){
   const inC=coupon.find(s=>s.mk===matchKey(base.t1,base.t2)&&s.marche===p.marche&&s.selection===p.selection);
-  return`<div class="pick"><div class="ptop"><div style="flex:1;min-width:0"><div class="pmk">${esc(p.marche)}</div><div class="psel">${esc(p.selection)} ${num(p.cote)?`<span style="font-size:15px;color:var(--yellow)">@${f2(num(p.cote))}</span>`:""}</div>
+  return`<div class="pick"><div class="ptop"><div style="flex:1;min-width:0"><div class="pmk">${esc(fr(p.marche))}</div><div class="psel">${esc(fr(p.selection))} ${num(p.cote)?`<span style="font-size:15px;color:var(--yellow)">@${f2(num(p.cote))}</span>`:""}</div>
   <div>${num(p.proba)?pill("Proba "+num(p.proba)+"%","#00b4d8"):""}${num(p.value)?pill("Value "+f2(num(p.value)),num(p.value)>=1?"#00e5a0":"#ff4d6d"):""}</div>
   <div class="pwhy">${esc(p.raison||"")}</div>
   <button class="add ${inC?"done":""}" onclick="addFromPath('${memKey}','${path}')">${inC?"✓ Dans le coupon":"+ Ajouter au coupon"}</button></div>
@@ -812,7 +831,7 @@ function viewSpecial(){
   if(!d) return h+`<div class="load"><button class="btn" onclick="loadSpecial(true)">🔍 SCANNER LES MATCHS DU JOUR</button></div>`;
   const ps=d.picks||[];
   if(!ps.length) return h+`<div class="empty"><b>📭</b>Aucune value trouvée aujourd'hui.<br>Le bot préfère ne rien proposer que forcer un pari.</div>`;
-  return h+`<div class="sub" style="margin:10px 2px">${ps.length} VALUES · ${esc(d.at||"")}</div>`+ps.map((p,i)=>`<div class="fade"><div class="sub" style="margin:0 2px 4px">${esc(p.competition||"")} · ${esc(p.heure||"")}</div><div style="font-weight:700;margin:0 2px 6px">${esc(p.match)}</div>${pickHTML(p,k,"picks."+i,{t1:(p.match||"").split(" vs ")[0],t2:(p.match||"").split(" vs ")[1]})}</div>`).join("");
+  return h+`<div class="sub" style="margin:10px 2px">${ps.length} VALUES · ${esc(d.at||"")}</div>`+ps.map((p,i)=>`<div class="fade"><div class="sub" style="margin:0 2px 4px">${esc(frComp(p.competition||""))} · ${esc(p.heure||"")}</div><div style="font-weight:700;margin:0 2px 6px">${esc(p.match)}</div>${pickHTML(p,k,"picks."+i,{t1:(p.match||"").split(" vs ")[0],t2:(p.match||"").split(" vs ")[1]})}</div>`).join("");
 }
 async function loadSpecial(force){
   const k="special_"+todayISO();
@@ -1088,9 +1107,9 @@ function viewGenResult(){
   h+=`<div class="ticket-h fade" style="background:linear-gradient(135deg,${s.bg},${s.bg}99)"><div style="min-width:0"><div style="font-family:var(--disp);font-size:21px;letter-spacing:2px">${s.l}</div><div style="font-family:var(--mono);font-size:9px;opacity:.65">${sels.length}${genRes.asked&&genRes.asked!==sels.length?"/"+genRes.asked:""} matchs · confiance ${num(c.confiance_globale)||"—"}%${""}</div></div><div style="text-align:right"><div style="font-family:var(--mono);font-size:9px;opacity:.6">COTE TOTALE</div><div style="font-family:var(--disp);font-size:36px;line-height:1">${f2(tot)}</div></div></div><div class="ticket-b">`;
   if(c.strategie) h+=`<div style="font-size:12px;color:#b8cfe0;line-height:1.55;padding:10px 0 4px">🧠 ${esc(c.strategie)}</div>`;
   sels.forEach((x,i)=>{const md=MARCHES.find(m=>m.id===x.marche_id||m.l===x.marche)||{c:s.bg,ic:"⚽"};
-    h+=`<div class="tsel"><div style="display:flex;gap:8px;align-items:baseline"><span style="font-family:var(--disp);font-size:14px;color:var(--dim)">${i+1}.</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(x.match)}</div><div class="sub">${esc(x.competition||"")}${x.heure?" · "+esc(x.heure):""}</div><div style="margin-top:3px">${verifBadge(x.verif)}</div></div></div>
-    <div style="background:${md.c}0c;border:1px solid ${md.c}30;border-radius:10px;padding:9px 11px;margin-top:6px"><div class="ptop"><div style="flex:1;min-width:0"><span class="pill" style="color:${md.c};background:${md.c}18;border-color:${md.c}44">${md.ic} ${esc(x.marche)}</span>${x.seuil&&x.seuil!=="null"?pill("📏 "+esc(x.seuil),"#ffd600"):""}
-    <div class="psel" style="color:${md.c}">${esc(x.selection)} ${num(x.cote)?`<span style="font-size:15px;color:var(--yellow)">@${f2(num(x.cote))}</span>`:""}</div></div><div class="note" style="color:${nc(x.note)}">${num(x.note)||"—"}<small>/20</small></div></div>
+    h+=`<div class="tsel"><div style="display:flex;gap:8px;align-items:baseline"><span style="font-family:var(--disp);font-size:14px;color:var(--dim)">${i+1}.</span><div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(x.match)}</div><div class="sub">${esc(frComp(x.competition||""))}${x.heure?" · "+esc(x.heure):""}</div><div style="margin-top:3px">${verifBadge(x.verif)}</div></div></div>
+    <div style="background:${md.c}0c;border:1px solid ${md.c}30;border-radius:10px;padding:9px 11px;margin-top:6px"><div class="ptop"><div style="flex:1;min-width:0"><span class="pill" style="color:${md.c};background:${md.c}18;border-color:${md.c}44">${md.ic} ${esc(fr(x.marche))}</span>${x.seuil&&x.seuil!=="null"?pill("📏 "+esc(x.seuil),"#ffd600"):""}
+    <div class="psel" style="color:${md.c}">${esc(fr(x.selection))} ${num(x.cote)?`<span style="font-size:15px;color:var(--yellow)">@${f2(num(x.cote))}</span>`:""}</div></div><div class="note" style="color:${nc(x.note)}">${num(x.note)||"—"}<small>/20</small></div></div>
     ${x.stat_cle?`<div style="font-family:var(--mono);font-size:9px;color:var(--yellow);background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:6px;padding:4px 8px;margin-top:6px">📊 ${esc(x.stat_cle)}</div>`:""}
     <div class="pwhy">${esc(x.raisonnement||x.raison||"")}</div>
     ${num(x.confiance)?`<div style="height:4px;background:#1a2d45;border-radius:2px;overflow:hidden;margin-top:6px"><div style="height:100%;width:${Math.min(100,num(x.confiance))}%;background:${md.c}"></div></div>`:""}</div></div>`;});
@@ -1216,11 +1235,11 @@ function viewVerifyResult(){
   ${(r.lecons||[]).filter(Boolean).length?`<div style="margin-top:10px;background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.2);border-radius:8px;padding:8px 10px"><div class="sub" style="color:var(--yellow)">📚 À RETENIR (enregistré pour tes prochains coupons)</div>${r.lecons.filter(Boolean).map(l=>`<div style="font-size:12px;color:#d8c77a;line-height:1.55;margin-top:3px">• ${esc(l)}</div>`).join("")}</div>`:""}
   </div>`;
   ps.forEach((p,i)=>{const vc=vC[p.verdict]||"#5a7a99";const S=STATUTS_V[p.statut]||STATUTS_V.INCONNU;const sg=p.suggestion&&typeof p.suggestion==="object"&&p.suggestion.selection?p.suggestion:null;
-    h+=`<div class="card fade" style="border-left:3px solid ${S[1]}"><div class="ptop"><div style="flex:1;min-width:0"><div class="sub">${i+1} · ${esc(p.competition||"")}${p.heure?" · "+esc(p.heure):""}</div><div style="font-weight:700;font-size:13px;margin:2px 0 5px">${esc(p.match||"")}${p.score?` <span style="color:${S[1]};font-family:var(--disp);font-size:16px">${esc(p.score)}</span>`:""}</div>${pill(esc(p.marche||""),"#a78bfa")}${pill("→ "+esc(p.selection),"#ffd600")}${num(p.cote)?pill("@"+f2(num(p.cote)),"#5a7a99"):""}</div><div class="note" style="color:${nc(p.note)};font-size:28px">${num(p.note)}<small>/20</small></div></div>
+    h+=`<div class="card fade" style="border-left:3px solid ${S[1]}"><div class="ptop"><div style="flex:1;min-width:0"><div class="sub">${i+1} · ${esc(frComp(p.competition||""))}${p.heure?" · "+esc(p.heure):""}</div><div style="font-weight:700;font-size:13px;margin:2px 0 5px">${esc(p.match||"")}${p.score?` <span style="color:${S[1]};font-family:var(--disp);font-size:16px">${esc(p.score)}</span>`:""}</div>${pill(esc(fr(p.marche||"")),"#a78bfa")}${pill("→ "+esc(fr(p.selection)),"#ffd600")}${num(p.cote)?pill("@"+f2(num(p.cote)),"#5a7a99"):""}</div><div class="note" style="color:${nc(p.note)};font-size:28px">${num(p.note)}<small>/20</small></div></div>
     <div style="margin:8px 0 4px">${pill(S[0],S[1])}${pill(esc(p.verdict||"—"),vc)}${num(p.proba)?pill(num(p.proba)+"%","#00b4d8"):""}</div>
     ${p.stat_cle?`<div style="font-family:var(--mono);font-size:9px;color:var(--yellow);background:rgba(255,214,0,.06);border:1px solid rgba(255,214,0,.15);border-radius:6px;padding:4px 8px;margin-bottom:5px">📊 ${esc(p.stat_cle)}</div>`:""}
     <div class="pwhy">${esc(p.analyse||"")}</div>
-    ${sg?`<div style="margin-top:8px;background:linear-gradient(135deg,rgba(0,229,160,.07),rgba(0,180,216,.04));border:1px solid rgba(0,229,160,.25);border-radius:10px;padding:8px 10px"><div class="sub" style="color:var(--green)">💡 ${p.statut==="PERDU"||p.statut==="GAGNE"?"IL FALLAIT PLUTÔT":"MEILLEURE OPTION"}</div><div class="ptop"><div><div class="pmk">${esc(sg.marche)}</div><div class="psel" style="color:var(--green)">${esc(sg.selection)} ${num(sg.cote)?`<span style="font-size:14px;color:var(--yellow)">@${f2(num(sg.cote))}</span>`:""}</div></div><div class="note" style="color:${nc(sg.note)}">${num(sg.note)}<small>/20</small></div></div><div class="pwhy">${esc(sg.raison||"")}</div></div>`:""}</div>`;});
+    ${sg?`<div style="margin-top:8px;background:linear-gradient(135deg,rgba(0,229,160,.07),rgba(0,180,216,.04));border:1px solid rgba(0,229,160,.25);border-radius:10px;padding:8px 10px"><div class="sub" style="color:var(--green)">💡 ${p.statut==="PERDU"||p.statut==="GAGNE"?"IL FALLAIT PLUTÔT":"MEILLEURE OPTION"}</div><div class="ptop"><div><div class="pmk">${esc(fr(sg.marche))}</div><div class="psel" style="color:var(--green)">${esc(fr(sg.selection))} ${num(sg.cote)?`<span style="font-size:14px;color:var(--yellow)">@${f2(num(sg.cote))}</span>`:""}</div></div><div class="note" style="color:${nc(sg.note)}">${num(sg.note)}<small>/20</small></div></div><div class="pwhy">${esc(sg.raison||"")}</div></div>`:""}</div>`;});
   h+=`<div class="btn2"><button class="btn" style="font-size:15px;padding:12px" onclick="importVerify(false)">🎫 Importer tel quel</button><button class="btn pur" style="font-size:15px;padding:12px" onclick="importVerify(true)">💡 Importer optimisé</button></div>
   <div class="sub" style="margin-top:6px;line-height:1.6">« Importer optimisé » ne garde que les matchs pas encore joués, avec les meilleures options du bot.</div>
   <button class="btn ghost" style="margin-top:8px" onclick="verifyRes=null;photoFile=null;st.vText='';lsDel('probet_verify_result');render()">🔄 Analyser d'autres coupons</button>`;
@@ -1280,7 +1299,7 @@ function viewChat(){
   }
   chat.forEach(m=>{
     const me=m.r==="u";
-    h+=`<div style="display:flex;justify-content:${me?"flex-end":"flex-start"};margin-bottom:10px"><div style="max-width:86%;padding:10px 13px;border-radius:${me?"14px 14px 4px 14px":"14px 14px 14px 4px"};background:${me?"linear-gradient(135deg,#00e5a0,#00b4d8)":"var(--card)"};color:${me?"#00140c":"var(--text)"};border:${me?"none":"1px solid var(--border)"};font-size:13.5px;line-height:1.55;word-wrap:break-word">${me?esc(m.t):mdLite(m.t)}${!me&&m.cal&&m.cal.list?`<div style="margin-top:9px;background:var(--card3);border:1px solid rgba(0,229,160,.3);border-radius:10px;padding:8px 10px"><div class="sub" style="color:var(--green);margin-bottom:5px">📅 CALENDRIER RÉEL ${esc(m.cal.label.toUpperCase())} · ${m.cal.list.length} MATCH${m.cal.list.length>1?"S":""}</div>${m.cal.list.map(x=>`<div style="font-size:12px;line-height:1.5;padding:3px 0;border-bottom:1px dashed #12304a"><span style="font-family:var(--mono);color:${x.live?"var(--red)":"var(--blue)"}">${esc(x.heure)}${x.live?" 🔴":""}</span> <b>${esc(x.t1)}</b> vs <b>${esc(x.t2)}</b> <span class="sub">${esc(x.comp)}</span></div>`).join("")}<button class="add" style="margin-top:7px" onclick="calToGen(${chat.indexOf(m)})">🎯 Envoyer au générateur</button></div>`:""}${!me&&m.acts&&m.acts.length?`<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border)">${m.acts.map(x=>`<div style="font-family:var(--mono);font-size:10.5px;color:${/^⚠/.test(x)?"#ff6b80":/^⏳/.test(x)?"var(--yellow)":"var(--green)"};line-height:1.6">${esc(x)}</div>`).join("")}</div>`:""}${!me&&m.btns&&m.btns.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${m.btns.map((b,j)=>`<button class="add" style="margin:0" onclick="chatBtn(${chat.indexOf(m)},${j})">${esc(b[0])}</button>`).join("")}</div>`:""}${m.err?`<div style="margin-top:6px"><button class="add" onclick="retryChat()">↻ Réessayer</button></div>`:""}</div></div>`;
+    h+=`<div style="display:flex;justify-content:${me?"flex-end":"flex-start"};margin-bottom:10px"><div style="max-width:86%;padding:10px 13px;border-radius:${me?"14px 14px 4px 14px":"14px 14px 14px 4px"};background:${me?"linear-gradient(135deg,#00e5a0,#00b4d8)":"var(--card)"};color:${me?"#00140c":"var(--text)"};border:${me?"none":"1px solid var(--border)"};font-size:13.5px;line-height:1.55;word-wrap:break-word">${me?esc(m.t):mdLite(m.t)}${!me&&m.cal&&m.cal.list?`<div style="margin-top:9px;background:var(--card3);border:1px solid rgba(0,229,160,.3);border-radius:10px;padding:8px 10px"><div class="sub" style="color:var(--green);margin-bottom:5px">📅 CALENDRIER RÉEL ${esc(m.cal.label.toUpperCase())} · ${m.cal.list.length} MATCH${m.cal.list.length>1?"S":""}</div>${m.cal.list.map(x=>`<div style="font-size:12px;line-height:1.5;padding:3px 0;border-bottom:1px dashed #12304a"><span style="font-family:var(--mono);color:${x.live?"var(--red)":"var(--blue)"}">${esc(x.heure)}${x.live?" 🔴":""}</span> <b>${esc(x.t1)}</b> vs <b>${esc(x.t2)}</b> <span class="sub">${esc(frComp(x.comp))}</span></div>`).join("")}<button class="add" style="margin-top:7px" onclick="calToGen(${chat.indexOf(m)})">🎯 Envoyer au générateur</button></div>`:""}${!me&&m.acts&&m.acts.length?`<div style="margin-top:8px;padding-top:7px;border-top:1px solid var(--border)">${m.acts.map(x=>`<div style="font-family:var(--mono);font-size:10.5px;color:${/^⚠/.test(x)?"#ff6b80":/^⏳/.test(x)?"var(--yellow)":"var(--green)"};line-height:1.6">${esc(x)}</div>`).join("")}</div>`:""}${!me&&m.btns&&m.btns.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${m.btns.map((b,j)=>`<button class="add" style="margin:0" onclick="chatBtn(${chat.indexOf(m)},${j})">${esc(b[0])}</button>`).join("")}</div>`:""}${m.err?`<div style="margin-top:6px"><button class="add" onclick="retryChat()">↻ Réessayer</button></div>`:""}</div></div>`;
   });
   if(busy.chat) h+=`<div style="display:flex;margin-bottom:10px"><div style="padding:10px 14px;border-radius:14px 14px 14px 4px;background:var(--card);border:1px solid var(--border)"><span class="lmsg">PROBET réfléchit…</span></div></div>`;
   h+=`</div>
@@ -1315,7 +1334,7 @@ async function chatCalendar(text){
   const tom=/demain/i.test(text);
   const from=tom?d0.getTime()+day:now-2*3600000, to=tom?d0.getTime()+2*day:d0.getTime()+day;
   const list=ev.filter(e=>{const t=Date.parse(e.commence_time);return t>=from&&t<to;}).sort((a,b)=>Date.parse(a.commence_time)-Date.parse(b.commence_time))
-    .map(e=>{const t=new Date(e.commence_time);return{t1:e.home_team,t2:e.away_team,comp:e.sport_title,heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),date:localDay(t),live:Date.parse(e.commence_time)<=now};});
+    .map(e=>{const t=new Date(e.commence_time);return{t1:e.home_team,t2:e.away_team,comp:frComp(e.sport_title),heure:t.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),date:localDay(t),live:Date.parse(e.commence_time)<=now};});
   return {list,label:tom?"demain":"aujourd'hui"};
 }
 async function askChat(){
@@ -1459,8 +1478,8 @@ function viewTicket(){
   coupon.forEach((s,i)=>{
     const an=couponAnalysis&&couponAnalysis.paris&&couponAnalysis.paris.find(p=>num(p.numero)===i+1);
     h+=`<div class="tsel"><div style="display:flex;gap:8px;align-items:flex-start">
-      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(s.match)}</div><div class="sub">${esc(s.comp||"")}${s.heure?" · "+esc(s.heure):""}</div>${s.verif?`<div style="margin-top:3px">${verifBadge(s.verif)}</div>`:""}
-      <div style="margin-top:5px"><span class="pmk">${esc(s.marche)}</span> <b style="font-family:var(--disp);font-size:17px;letter-spacing:.5px">${esc(s.selection)}</b>${num(s.note)&&!an?` <span style="font-family:var(--mono);font-size:10px;color:${nc(s.note)}">${num(s.note)}/20</span>`:""}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(s.match)}</div><div class="sub">${esc(frComp(s.comp||""))}${s.heure?" · "+esc(s.heure):""}</div>${s.verif?`<div style="margin-top:3px">${verifBadge(s.verif)}</div>`:""}
+      <div style="margin-top:5px"><span class="pmk">${esc(fr(s.marche))}</span> <b style="font-family:var(--disp);font-size:17px;letter-spacing:.5px">${esc(fr(s.selection))}</b>${num(s.note)&&!an?` <span style="font-family:var(--mono);font-size:10px;color:${nc(s.note)}">${num(s.note)}/20</span>`:""}</div></div>
       <input class="codd" type="number" step="0.01" inputmode="decimal" value="${s.cote?f2(s.cote):""}" placeholder="cote" onchange="setOdd(${i},this.value)"/>
       <button class="x" onclick="rmSel(${i})">✕</button></div>
       ${an?analysisLine(an,i):""}</div>`;
@@ -1483,7 +1502,7 @@ function analysisLine(an,i){
   const sg=an.suggestion&&typeof an.suggestion==="object"&&an.suggestion.selection?an.suggestion:null;
   return`<div style="margin-top:8px;background:var(--card3);border:1px solid var(--border2);border-radius:9px;padding:8px 10px">
     <div style="display:flex;gap:8px;align-items:center"><div class="note" style="color:${nc(an.note)};font-size:20px;min-width:38px">${num(an.note)}<small>/20</small></div><div style="flex:1;font-size:11.5px;color:var(--muted);line-height:1.5">${esc(an.analyse||"")}</div></div>
-    ${sg&&num(an.note)<16?`<div style="margin-top:7px;border-top:1px solid var(--border);padding-top:7px;font-size:11.5px"><span style="color:var(--green);font-weight:700">💡 Mieux :</span> ${esc(sg.marche)} → <b>${esc(sg.selection)}</b>${num(sg.cote)?" @"+f2(num(sg.cote)):""} (${num(sg.note)}/20)<div class="pwhy">${esc(sg.raison||"")}</div><button class="add" onclick="applySugg(${i})">↺ Remplacer</button></div>`:""}
+    ${sg&&num(an.note)<16?`<div style="margin-top:7px;border-top:1px solid var(--border);padding-top:7px;font-size:11.5px"><span style="color:var(--green);font-weight:700">💡 Mieux :</span> ${esc(fr(sg.marche))} → <b>${esc(fr(sg.selection))}</b>${num(sg.cote)?" @"+f2(num(sg.cote)):""} (${num(sg.note)}/20)<div class="pwhy">${esc(sg.raison||"")}</div><button class="add" onclick="applySugg(${i})">↺ Remplacer</button></div>`:""}
   </div>`;
 }
 function applySugg(i){
@@ -1572,7 +1591,7 @@ async function handleFile(e){
 function couponText(sels,title){
   const n=["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟"];
   let t="🎯 PROBET — "+(title||"Coupon")+"\n📅 "+new Date().toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})+"\n\n";
-  (sels||[]).forEach((s,i)=>{t+=(n[i]||"▪️")+" "+s.match+(s.heure?" ("+s.heure+")":"")+"\n   ➜ "+s.marche+" : "+s.selection+(num(s.cote)?" @"+f2(num(s.cote)):"")+"\n";});
+  (sels||[]).forEach((s,i)=>{t+=(n[i]||"▪️")+" "+s.match+(s.heure?" ("+s.heure+")":"")+"\n   ➜ "+fr(s.marche)+" : "+fr(s.selection)+(num(s.cote)?" @"+f2(num(s.cote)):"")+"\n";});
   t+="\n💰 Cote totale : "+f2(totalOdds(sels))+"\n⚠️ Jouez responsablement";
   return t;
 }
@@ -1654,7 +1673,7 @@ function viewMenu(){
     • Fixe un budget et ne mise jamais plus de 1 à 5 % de ta bankroll par coupon.<br>
     • Ne cherche pas à « te refaire » après une perte.<br>
     • Les cotes affichées sont indicatives : vérifie-les sur ton bookmaker.</div>
-  <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#1a3a52;letter-spacing:1px;padding:20px 0">PROBET v27.0 · BOT STRATÉGIQUE FOOTBALL</div>`;
+  <div style="text-align:center;font-family:var(--mono);font-size:8px;color:#1a3a52;letter-spacing:1px;padding:20px 0">PROBET v28.0 · BOT STRATÉGIQUE FOOTBALL</div>`;
   return h;
 }
 function saveKey(){
